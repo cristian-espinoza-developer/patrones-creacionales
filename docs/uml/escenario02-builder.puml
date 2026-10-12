@@ -1,0 +1,172 @@
+@startuml escenario02-builder
+' Escenario 02 — Builder (registro de activos fijos)
+' Notación UML 2.5: visibilidad (+ - #), {static} subrayado, {readOnly} para atributos final,
+' «create» para constructores, ⊕ para clases anidadas.
+!pragma layout smetana
+skinparam style strictuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam packageStyle folder
+skinparam nodesep 50
+skinparam ranksep 70
+hide empty members
+title Escenario 02 — Diagrama de clases (patrón Builder, variante moderna con Director)
+
+package "escenario02.builder" {
+
+  class ActivoFijo <<final>> {
+    - codigo : String {readOnly}
+    - nombre : String {readOnly}
+    - precioAdquisicion : double {readOnly}
+    - marca : String [0..1] {readOnly}
+    - modelo : String [0..1] {readOnly}
+    - numeroSerie : String [0..1] {readOnly}
+    - ubicacion : String [0..1] {readOnly}
+    - custodio : String [0..1] {readOnly}
+    - fechaAdquisicion : LocalDate [0..1] {readOnly}
+    - garantiaMeses : Integer [0..1] {readOnly}
+    - proveedor : String [0..1] {readOnly}
+    - caracteristicas : Map<String, String> {readOnly}
+    - observaciones : String [0..1] {readOnly}
+    - «create» ActivoFijo(builder : Builder)
+    + getCodigo() : String
+    + getNombre() : String
+    + getPrecioAdquisicion() : double
+    + getMarca() : Optional<String>
+    + getModelo() : Optional<String>
+    + getNumeroSerie() : Optional<String>
+    + getUbicacion() : Optional<String>
+    + getCustodio() : Optional<String>
+    + getFechaAdquisicion() : Optional<LocalDate>
+    + getGarantiaMeses() : Optional<Integer>
+    + getProveedor() : Optional<String>
+    + getCaracteristicas() : Map<String, String>
+    + getObservaciones() : Optional<String>
+    + getFinGarantia() : Optional<LocalDate>
+    + describir() : String
+    + toString() : String
+  }
+
+  class Builder <<final>> {
+    - codigo : String {readOnly}
+    - nombre : String {readOnly}
+    - precioAdquisicion : double {readOnly}
+    - marca : String [0..1]
+    - modelo : String [0..1]
+    - numeroSerie : String [0..1]
+    - ubicacion : String [0..1]
+    - custodio : String [0..1]
+    - fechaAdquisicion : LocalDate [0..1]
+    - garantiaMeses : Integer [0..1]
+    - proveedor : String [0..1]
+    - caracteristicas : Map<String, String> {readOnly}
+    - observaciones : String [0..1]
+    + «create» Builder(codigo : String, nombre : String, precioAdquisicion : double)
+    + marca(marca : String) : Builder
+    + modelo(modelo : String) : Builder
+    + numeroSerie(numeroSerie : String) : Builder
+    + ubicacion(ubicacion : String) : Builder
+    + custodio(custodio : String) : Builder
+    + fechaAdquisicion(fecha : LocalDate) : Builder
+    + garantiaMeses(meses : int) : Builder
+    + proveedor(proveedor : String) : Builder
+    + caracteristica(nombre : String, valor : String) : Builder
+    + observaciones(observaciones : String) : Builder
+    + build() : ActivoFijo
+    - {static} texto(valor : String, campo : String) : String
+  }
+
+  class DirectorActivos {
+    + construirComputador(builder : Builder, marca : String, modelo : String, numeroSerie : String, procesador : String, garantiaMeses : int) : ActivoFijo
+    + construirMueble(builder : Builder, material : String, dimensiones : String, ubicacion : String, custodio : String) : ActivoFijo
+  }
+
+  class Main {
+    + {static} main(args : String[]) : void
+  }
+}
+
+package "escenario02.gui" {
+
+  class VentanaActivos {
+    - director : DirectorActivos {readOnly}
+    - camposOpcionales : List<CampoOpcional> {readOnly}
+    - registros : List<Registro> {readOnly}
+    - codigos : Set<String> {readOnly}
+    + «create» VentanaActivos()
+    - construir() : void
+    - ejemploComputador() : void
+    - ejemploMueble() : void
+    - registrar(activo : ActivoFijo, proceso : String) : void
+    - mostrarSeleccionado() : void
+    - agregarCaracteristica() : void
+    - quitarCaracteristica() : void
+    - limpiar() : void
+  }
+
+  class CampoOpcional <<record>> {
+    + etiqueta : String {readOnly}
+    + metodo : String {readOnly}
+    + campo : JTextField {readOnly}
+    + paso : BiConsumer<Builder, String> {readOnly}
+    + argumento : Function<String, String> {readOnly}
+  }
+
+  class Registro <<record>> {
+    + proceso : String {readOnly}
+  }
+
+  class AppActivos {
+    + {static} main(args : String[]) : void
+  }
+}
+
+package "javax.swing" {
+  class JFrame
+}
+
+' ---------- Estructura del Builder ----------
+ActivoFijo +-- Builder
+Builder ..> ActivoFijo : <<instantiate>>
+DirectorActivos ..> Builder : <<use>>
+DirectorActivos ..> ActivoFijo : <<use>>
+
+' ---------- Clientes ----------
+Main ..> Builder : <<instantiate>>
+Main ..> DirectorActivos : <<instantiate>>
+Main ..> ActivoFijo : <<use>>
+
+JFrame <|-- VentanaActivos
+VentanaActivos +-- CampoOpcional
+VentanaActivos +-- Registro
+VentanaActivos "1" --> "1" DirectorActivos : -director
+VentanaActivos ..> Builder : <<instantiate>>
+CampoOpcional ..> Builder : <<use>>
+Registro "*" --> "1" ActivoFijo : +activo
+AppActivos ..> VentanaActivos : <<instantiate>>
+
+' ---------- Roles del patrón (GoF) ----------
+note "<b>Product</b>" as NP
+NP .. ActivoFijo
+note as NB
+  <b>Builder / ConcreteBuilder</b>
+  En la variante moderna ambos roles
+  se reúnen en la clase anidada Builder.
+  Obligatorios: constructor del Builder.
+  Opcionales: métodos encadenados.
+  build() valida y entrega el producto.
+end note
+NB .. Builder
+note as ND
+  <b>Director</b> (opcional)
+  Secuencias de construcción
+  habituales por categoría
+end note
+ND .. DirectorActivos
+note "<b>Client</b>" as NCL
+NCL .. Main
+NCL .. VentanaActivos
+
+@enduml

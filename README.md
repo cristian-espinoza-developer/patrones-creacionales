@@ -438,15 +438,232 @@ Con estos pasos la motocicleta aparece en el combo de la interfaz gráfica, con 
 
 ## Justificación
 
-- _(completar)_
+### Problema de creación de objetos identificado
+
+- Un activo fijo tiene **3 datos obligatorios** (código institucional, nombre o descripción y precio de adquisición) y **10 grupos de datos opcionales** (marca, modelo, número de serie, ubicación, custodio, fecha de adquisición, garantía, proveedor, características técnicas y observaciones).
+- Cada tipo de activo usa una combinación distinta de esos datos. Un computador necesita marca, modelo, serie, procesador y garantía; una mesa, en cambio, solo material, dimensiones, ubicación y custodio.
+- Con constructores tradicionales aparecen dos problemas:
+  - **Constructores telescópicos:** para cubrir las combinaciones habría que escribir muchos constructores sobrecargados, y aun así no alcanzarían, porque varios parámetros tienen el mismo tipo (`String`) y Java no puede distinguir dos sobrecargas con la misma firma.
+  - **Llamadas ilegibles y propensas a errores:** una llamada como `new ActivoFijo("AF001", "Computador", 1200, "Dell", "Latitude", null, "Cuenca", true, 36, ...)` obliga a recordar el orden de los parámetros y a pasar `null` en lo que no aplica. Además, intercambiar por error dos `String` (por ejemplo, la marca con el modelo) compila sin advertencia.
+- La alternativa de un constructor vacío más *setters* (estilo JavaBean) tampoco sirve: permite crear activos sin sus datos obligatorios, deja el objeto en un estado incompleto mientras se configura y lo vuelve mutable.
+
+### Patrón seleccionado: Builder
+
+- **Propósito (GoF):** separar la construcción de un objeto complejo de su representación, de modo que un mismo proceso de construcción pueda producir diferentes representaciones.
+- Se aplica la **variante moderna** del patrón, que el material de la asignatura recomienda cuando "existen muchos parámetros; varios atributos son opcionales; se desea evitar múltiples constructores sobrecargados; se busca una construcción más legible y explícita". Son exactamente las condiciones del escenario.
+- **Correspondencia con el escenario:**
+  - El enunciado pide *establecer primero la información obligatoria*. Esa información se pasa al constructor del Builder, así que no hay forma de iniciar un activo sin ella: `new ActivoFijo.Builder(codigo, nombre, precio)`.
+  - El enunciado pide *agregar posteriormente únicamente las características que correspondan*. Cada dato opcional tiene su propio método encadenado (`.marca(...)`, `.ubicacion(...)`, `.caracteristica(...)`), y los datos que no aplican simplemente no se invocan.
+  - El enunciado pide *hacer explícito qué información se incorpora*. El nombre de cada método documenta el dato, por lo que la construcción se lee como una lista de los datos del activo.
+  - El enunciado pide *obtener finalmente un objeto correctamente configurado*. `build()` valida toda la información (datos obligatorios, fecha no futura, garantía no negativa), informa todos los errores a la vez y entrega un `ActivoFijo` **inmutable**.
+  - El enunciado pide *no mantener constructores sobrecargados ni proporcionar valores vacíos*. `ActivoFijo` tiene un único constructor privado, que recibe el Builder, y los datos opcionales que no se registraron se exponen como `Optional` vacío en lugar de `null`.
+- Se incorpora además un **Director** (`DirectorActivos`), que es opcional en la variante moderna. Encapsula las secuencias de construcción habituales de la institución; por ejemplo, garantiza que todo computador incorpore marca, modelo, serie, procesador y garantía. Así el diseño también muestra los participantes del Builder clásico de GoF.
+
+### Participantes
+
+| Participante (GoF) | Clase | Responsabilidad |
+|---|---|---|
+| Product | `ActivoFijo` | Objeto complejo resultante. Es inmutable, su constructor es privado (solo se crea con el Builder) y expone los datos opcionales como `Optional`. |
+| Builder / ConcreteBuilder | `ActivoFijo.Builder` (clase anidada estática) | Recibe los datos obligatorios en su constructor, incorpora los opcionales mediante métodos encadenados y entrega el producto con `build()`. En la variante moderna, los roles Builder y ConcreteBuilder se reúnen en esta clase. |
+| Director | `DirectorActivos` | Define secuencias de construcción predefinidas por categoría: `construirComputador()` y `construirMueble()`. |
+| Client | `Main` (consola), `VentanaActivos` (Swing) | Construyen activos con el Builder directamente o mediante el Director. |
+
+### Alternativas consideradas
+
+- **Constructores telescópicos (sobrecargados):** se descartaron porque generan una explosión de constructores, no cubren todas las combinaciones (las firmas con varios `String` chocan entre sí) y obligan a pasar `null`.
+- **Constructor vacío + setters (JavaBean):** se descartó porque no garantiza los datos obligatorios, deja el objeto en estados intermedios inválidos y produce objetos mutables.
+- **Builder clásico de GoF (interfaz Builder + ConcreteBuilders + Director obligatorio):** su ventaja es producir *diferentes representaciones* con el mismo proceso, pero aquí solo existe una representación (`ActivoFijo`). Una interfaz con un único ConcreteBuilder añadiría complejidad sin beneficio. Por eso se usa la variante moderna y se conserva el Director como opción para las configuraciones habituales.
+- **Factory Method:** resuelve *qué clase concreta crear* en tiempo de ejecución (ese es el problema del Escenario 01), no *cómo construir progresivamente* un objeto con muchos datos opcionales.
 
 ## Diagrama de clases
 
-_(insertar diagrama)_
+![Diagrama de clases — Builder](docs/uml/escenario02-builder.png)
+
+Fuente PlantUML: [`docs/uml/escenario02-builder.puml`](docs/uml/escenario02-builder.puml) · versión vectorial: [`escenario02-builder.svg`](docs/uml/escenario02-builder.svg)
+
+| Participante (GoF) | Clase |
+|---|---|
+| Product | `ActivoFijo` |
+| Builder / ConcreteBuilder | `ActivoFijo.Builder` |
+| Director | `DirectorActivos` |
+| Client | `Main` (consola), `VentanaActivos` (Swing) |
+
+En el diagrama, la clase `Builder` aparece anidada en `ActivoFijo` (símbolo ⊕). Los atributos opcionales se marcan con la multiplicidad `[0..1]`, y la dependencia «instantiate» de `Builder` hacia `ActivoFijo` corresponde a `build()`, el único punto donde se crea el producto.
 
 ## Código fuente
 
-- _(completar)_
+Lenguaje: **Java 17**, en el mismo proyecto **Maven** del Escenario 01, con interfaz gráfica **Swing** y pruebas **JUnit 5**.
+
+### Estructura
+
+```text
+src/main/java/escenario02/
+├── builder/
+│   ├── ActivoFijo.java            # Product + Builder anidado (ActivoFijo.Builder)
+│   ├── DirectorActivos.java       # Director (secuencias predefinidas)
+│   └── Main.java                  # Client (consola)
+└── gui/
+    ├── AppActivos.java            # Punto de entrada de la interfaz gráfica
+    └── VentanaActivos.java        # Client (Swing)
+src/test/java/escenario02/builder/
+└── BuilderTest.java               # Pruebas unitarias
+```
+
+### Fragmentos principales
+
+**Product:** constructor privado, atributos finales y datos opcionales expuestos como `Optional`:
+
+```java
+public final class ActivoFijo {
+
+    private final String codigo;
+    private final String nombre;
+    private final double precioAdquisicion;
+    private final String marca;          // opcional
+    // ... demás atributos opcionales
+
+    private ActivoFijo(Builder builder) {
+        this.codigo = builder.codigo;
+        this.nombre = builder.nombre;
+        this.precioAdquisicion = builder.precioAdquisicion;
+        this.marca = builder.marca;
+        // ...
+    }
+
+    public Optional<String> getMarca() {
+        return Optional.ofNullable(marca);
+    }
+}
+```
+
+**Builder:** los datos obligatorios van en el constructor, los opcionales en métodos encadenados, y `build()` valida antes de crear:
+
+```java
+public static final class Builder {
+
+    public Builder(String codigo, String nombre, double precioAdquisicion) { ... }
+
+    public Builder marca(String marca) {
+        this.marca = texto(marca, "La marca");
+        return this;
+    }
+
+    public Builder caracteristica(String nombre, String valor) { ... }
+
+    public ActivoFijo build() {
+        List<String> errores = new ArrayList<>();
+        if (codigo == null || codigo.isEmpty()) {
+            errores.add("El código institucional es obligatorio.");
+        }
+        // ... nombre, precio > 0, fecha no futura, garantía no negativa
+        if (!errores.isEmpty()) {
+            throw new IllegalStateException(String.join(System.lineSeparator(), errores));
+        }
+        return new ActivoFijo(this);
+    }
+}
+```
+
+**Director:** secuencia predefinida para una categoría de activo:
+
+```java
+public ActivoFijo construirComputador(ActivoFijo.Builder builder, String marca, String modelo,
+                                      String numeroSerie, String procesador, int garantiaMeses) {
+    return builder
+            .marca(marca)
+            .modelo(modelo)
+            .numeroSerie(numeroSerie)
+            .caracteristica("Procesador", procesador)
+            .garantiaMeses(garantiaMeses)
+            .build();
+}
+```
+
+**Client:** comparación con la llamada original del enunciado. Cada activo recibe solo los datos que le corresponden:
+
+```java
+// Antes: difícil de leer y con valores vacíos
+// new ActivoFijo("AF001", "Computador", 1200, "Dell", "Latitude", null, "Cuenca", true, 36, ...)
+
+// Con Builder
+ActivoFijo impresora = new ActivoFijo.Builder("AF003", "Impresora multifunción", 380)
+        .marca("Epson")
+        .modelo("EcoTank L6270")
+        .ubicacion("Secretaría general")
+        .fechaAdquisicion(LocalDate.of(2025, 3, 15))
+        .garantiaMeses(24)
+        .proveedor("Comercial Andina S.A.")
+        .build();
+
+// Con el Director
+ActivoFijo mesa = director.construirMueble(
+        new ActivoFijo.Builder("AF002", "Mesa de reuniones", 450),
+        "Madera", "2,40 × 1,20 m", "Sala 3", "María López");
+```
+
+### Ejecución
+
+```bash
+mvn test                                                               # pruebas unitarias (ambos escenarios)
+mvn compile exec:java -Dexec.mainClass=escenario02.gui.AppActivos      # interfaz gráfica (Swing)
+mvn compile exec:java -Dexec.mainClass=escenario02.builder.Main        # versión de consola
+```
+
+Salida de la versión de consola: cada ficha muestra únicamente los datos registrados para ese activo.
+
+```text
+Activo AF001 — Computador portátil
+  Precio de adquisición: $1.200,00
+  Marca: Dell
+  Modelo: Latitude 5440
+  Número de serie: SN-88231
+  Garantía: 36 meses
+  Procesador: Intel Core i7
+
+Activo AF002 — Mesa de reuniones
+  Precio de adquisición: $450,00
+  Ubicación: Sala 3
+  Custodio: María López
+  Material: Madera
+  Dimensiones: 2,40 × 1,20 m
+
+Activo AF003 — Impresora multifunción
+  Precio de adquisición: $380,00
+  Marca: Epson
+  Modelo: EcoTank L6270
+  Ubicación: Secretaría general
+  Fecha de adquisición: 2025-03-15
+  Garantía: 24 meses
+  Fin de garantía: 2027-03-15
+  Proveedor: Comercial Andina S.A.
+
+Construcción rechazada:
+El código institucional es obligatorio.
+El precio de adquisición debe ser mayor que cero.
+```
+
+### Interfaz gráfica
+
+![Interfaz gráfica — Registro de activos fijos](docs/img/escenario02-activos.png)
+
+- **Formulario:**
+  - Separa la información obligatoria (marcada con `*`) de la opcional.
+  - Las características técnicas se agregan en una tabla (por ejemplo, procesador, material o dimensiones).
+- **Construir activo:** crea el `ActivoFijo.Builder` con los datos obligatorios y solo invoca los métodos de los campos opcionales que tienen valor; los campos vacíos no generan ninguna llamada. Si `build()` rechaza la construcción, la ventana muestra todos los errores juntos.
+- **Proceso de construcción:** muestra la cadena de llamadas al Builder que se ejecutó para el activo seleccionado.
+- **Ficha del activo:** muestra únicamente los datos registrados.
+- **Ejemplos construidos por el Director:** los botones *Computador* y *Mueble* crean activos con las secuencias de `DirectorActivos`.
+
+### Pruebas unitarias
+
+`BuilderTest` (9 pruebas) verifica que:
+
+- se pueda construir un activo solo con los datos obligatorios, sin que existan valores opcionales;
+- los datos opcionales se incorporen progresivamente, incluido el cálculo del fin de garantía;
+- el producto sea inmutable: sus características no se pueden modificar, y seguir usando el Builder no altera los activos ya construidos;
+- `build()` informe en un solo mensaje todos los datos obligatorios faltantes;
+- se rechacen una fecha de adquisición futura, una garantía negativa y valores vacíos en los pasos opcionales;
+- el Director construya computadores y muebles con la información que corresponde a cada categoría.
 
 ## Uso crítico de inteligencia artificial
 
