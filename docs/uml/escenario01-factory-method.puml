@@ -1,0 +1,232 @@
+@startuml escenario01-factory-method
+' Escenario 01 — Factory Method (registro y matriculación de vehículos)
+' Notación UML 2.5: visibilidad (+ - #), {abstract} en cursiva, {static} subrayado,
+' {readOnly} para atributos final, «create» para constructores.
+!pragma layout smetana
+skinparam style strictuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam packageStyle folder
+skinparam nodesep 40
+skinparam ranksep 60
+hide empty members
+title Escenario 01 — Diagrama de clases (patrón Factory Method)
+
+package "escenario01.factorymethod" {
+
+  abstract class Vehiculo {
+    # {static} TASA_FIJA : double = 30.00 {readOnly}
+    - placa : String {readOnly}
+    - marca : String {readOnly}
+    - modelo : String {readOnly}
+    - anioFabricacion : int {readOnly}
+    - avaluo : double {readOnly}
+    # «create» Vehiculo(placa : String, marca : String, modelo : String, anioFabricacion : int, avaluo : double)
+    + {abstract} calcularMatricula() : double
+    + {abstract} getTipo() : String
+    + getAntiguedad() : int
+    + getPlaca() : String
+    + getMarca() : String
+    + getModelo() : String
+    + getAnioFabricacion() : int
+    + getAvaluo() : double
+    + toString() : String
+  }
+
+  class Auto {
+    - {static} TASA_AVALUO : double = 0.015 {readOnly}
+    - {static} DESCUENTO_POR_ANIO : double = 0.02 {readOnly}
+    - {static} DESCUENTO_MAXIMO : double = 0.20 {readOnly}
+    + «create» Auto(placa : String, marca : String, modelo : String, anioFabricacion : int, avaluo : double)
+    + calcularMatricula() : double
+    + getTipo() : String
+  }
+
+  class Camioneta {
+    - {static} TASA_AVALUO : double = 0.018 {readOnly}
+    - {static} VALOR_POR_TONELADA : double = 15.00 {readOnly}
+    - {static} RECARGO_USO_COMERCIAL : double = 0.10 {readOnly}
+    - capacidadCarga : double {readOnly}
+    - usoComercial : boolean {readOnly}
+    + «create» Camioneta(placa : String, marca : String, modelo : String, anioFabricacion : int, avaluo : double, capacidadCarga : double, usoComercial : boolean)
+    + calcularMatricula() : double
+    + getTipo() : String
+    + getCapacidadCarga() : double
+    + isUsoComercial() : boolean
+  }
+
+  class Camion {
+    - {static} TASA_AVALUO : double = 0.01 {readOnly}
+    - {static} VALOR_POR_TONELADA : double = 20.00 {readOnly}
+    - {static} VALOR_POR_EJE : double = 10.00 {readOnly}
+    - tonelaje : double {readOnly}
+    - numeroEjes : int {readOnly}
+    + «create» Camion(placa : String, marca : String, modelo : String, anioFabricacion : int, avaluo : double, tonelaje : double, numeroEjes : int)
+    + calcularMatricula() : double
+    + getTipo() : String
+    + getTonelaje() : double
+    + getNumeroEjes() : int
+  }
+
+  class VehiculoConfigurable {
+    - definicion : DefinicionTipo {readOnly}
+    - valores : Map<String, Double> {readOnly}
+    + «create» VehiculoConfigurable(placa : String, marca : String, modelo : String, anioFabricacion : int, avaluo : double, definicion : DefinicionTipo, valores : Map<String, Double>)
+    + calcularMatricula() : double
+    + getTipo() : String
+    + getDefinicion() : DefinicionTipo
+    + getValores() : Map<String, Double>
+  }
+
+  abstract class CreadorVehiculo {
+    # {abstract} crearVehiculo(solicitud : SolicitudMatricula) : Vehiculo
+    + getCamposEspecificos() : List<CampoRequerido>
+    + registrarVehiculo(solicitud : SolicitudMatricula) : Vehiculo {leaf}
+  }
+
+  class CreadorAuto {
+    # crearVehiculo(s : SolicitudMatricula) : Vehiculo
+  }
+
+  class CreadorCamioneta {
+    # crearVehiculo(s : SolicitudMatricula) : Vehiculo
+    + getCamposEspecificos() : List<CampoRequerido>
+  }
+
+  class CreadorCamion {
+    # crearVehiculo(s : SolicitudMatricula) : Vehiculo
+    + getCamposEspecificos() : List<CampoRequerido>
+  }
+
+  class CreadorConfigurable {
+    - definicion : DefinicionTipo {readOnly}
+    + «create» CreadorConfigurable(definicion : DefinicionTipo)
+    # crearVehiculo(s : SolicitudMatricula) : Vehiculo
+    + getCamposEspecificos() : List<CampoRequerido>
+    + getDefinicion() : DefinicionTipo
+  }
+
+  class DefinicionTipo <<record>> {
+    + nombre : String {readOnly}
+    + tasaAvaluo : double {readOnly}
+    + descuentoPorAnio : double {readOnly}
+    + descuentoMaximo : double {readOnly}
+    + caracteristicas : List<TarifaCaracteristica> {readOnly}
+  }
+
+  class TarifaCaracteristica <<record>> {
+    + etiqueta : String {readOnly}
+    + tipo : TipoDato {readOnly}
+    + tarifa : double {readOnly}
+    + aCampoRequerido() : CampoRequerido
+  }
+
+  class CatalogoCreadores {
+    - tipos : List<String>
+    + registrar(tipo : String, creador : CreadorVehiculo) : void
+    + obtener(tipo : String) : CreadorVehiculo
+    + contiene(tipo : String) : boolean
+    + getTipos() : List<String>
+    + {static} porDefecto() : CatalogoCreadores
+    - {static} normalizar(tipo : String) : String
+  }
+
+  class SolicitudMatricula <<record>> {
+    + tipo : String {readOnly}
+    + placa : String {readOnly}
+    + marca : String {readOnly}
+    + modelo : String {readOnly}
+    + anioFabricacion : int {readOnly}
+    + avaluo : double {readOnly}
+    + caracteristicas : Map<String, String> {readOnly}
+    + caracteristica(nombre : String) : String
+    + caracteristicaDecimal(nombre : String) : double
+    + caracteristicaEntera(nombre : String) : int
+    + caracteristicaLogica(nombre : String) : boolean
+  }
+
+  class CampoRequerido <<record>> {
+    + nombre : String {readOnly}
+    + etiqueta : String {readOnly}
+    + tipo : TipoDato {readOnly}
+  }
+
+  enum TipoDato <<enumeration>> {
+    DECIMAL
+    ENTERO
+    LOGICO
+  }
+
+  class Main {
+    + {static} main(args : String[]) : void
+  }
+}
+
+' ---------- Generalizaciones ----------
+Vehiculo <|-- Auto
+Vehiculo <|-- Camioneta
+Vehiculo <|-- Camion
+Vehiculo <|-- VehiculoConfigurable
+
+CreadorVehiculo <|-- CreadorAuto
+CreadorVehiculo <|-- CreadorCamioneta
+CreadorVehiculo <|-- CreadorCamion
+CreadorVehiculo <|-- CreadorConfigurable
+
+
+' ---------- Dependencias del Factory Method ----------
+CreadorVehiculo ..> Vehiculo : <<use>>
+CreadorVehiculo ..> SolicitudMatricula : <<use>>
+CreadorAuto ..> Auto : <<instantiate>>
+CreadorCamioneta ..> Camioneta : <<instantiate>>
+CreadorCamion ..> Camion : <<instantiate>>
+CreadorConfigurable ..> VehiculoConfigurable : <<instantiate>>
+CreadorConfigurable "*" --> "1" DefinicionTipo : -definicion
+VehiculoConfigurable "*" --> "1" DefinicionTipo : -definicion
+DefinicionTipo "1" *--> "*" TarifaCaracteristica : +caracteristicas
+TarifaCaracteristica ..> CampoRequerido : <<instantiate>>
+
+' ---------- Asociaciones ----------
+CatalogoCreadores "1" o--> "*" CreadorVehiculo : -creadores
+CreadorVehiculo ..> CampoRequerido : <<use>>
+CampoRequerido +-- TipoDato
+
+' ---------- Clientes ----------
+Main ..> CatalogoCreadores : <<use>>
+Main ..> SolicitudMatricula : <<instantiate>>
+Main ..> Vehiculo : <<use>>
+
+' ---------- Roles del patrón (GoF) ----------
+note "<b>Product</b>" as NP
+NP .. Vehiculo
+note "<b>ConcreteProduct</b>" as NCP
+NCP .. Auto
+NCP .. Camioneta
+NCP .. Camion
+NCP .. VehiculoConfigurable
+note as NC
+  <b>Creator</b>
+  crearVehiculo() es el Factory Method
+end note
+NC .. CreadorVehiculo
+note "<b>ConcreteCreator</b>" as NCC
+NCC .. CreadorAuto
+NCC .. CreadorCamioneta
+NCC .. CreadorCamion
+NCC .. CreadorConfigurable
+note as NCL
+  <b>Client</b> (consola)
+  Los clientes gráficos están en
+  escenario01-gui.puml
+end note
+NCL .. Main
+note as NQ
+  Asociación calificada:
+  CatalogoCreadores [tipo : String] → 0..1 CreadorVehiculo
+  (implementada con Map<String, CreadorVehiculo>)
+end note
+NQ .. CatalogoCreadores
+
+@enduml

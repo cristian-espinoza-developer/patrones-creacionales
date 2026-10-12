@@ -1,0 +1,95 @@
+@startuml escenario01-gui
+' Escenario 01 — Factory Method (registro y matriculación de vehículos)
+' Notación UML 2.5: visibilidad (+ - #), {abstract} en cursiva, {static} subrayado,
+' {readOnly} para atributos final, «create» para constructores.
+!pragma layout smetana
+skinparam style strictuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam packageStyle folder
+skinparam nodesep 40
+skinparam ranksep 60
+hide empty members
+title Escenario 01 — Clientes gráficos (Swing) del Factory Method
+
+package "escenario01.gui" {
+
+  class VentanaMatricula {
+    - catalogo : CatalogoCreadores {readOnly}
+    - camposEspecificos : Map<String, JComponent>
+    + «create» VentanaMatricula(catalogo : CatalogoCreadores)
+    - actualizarCamposEspecificos() : void
+    - calcular() : void
+    - leerCamposEspecificos() : Map<String, String>
+    - limpiar() : void
+    - tipoCreado(tipo : String) : void
+  }
+
+  class PanelNuevoTipo {
+    - catalogo : CatalogoCreadores {readOnly}
+    - alCrearTipo : Consumer<String> {readOnly}
+    - caracteristicas : List<TarifaCaracteristica>
+    + «create» PanelNuevoTipo(catalogo : CatalogoCreadores, alCrearTipo : Consumer<String>)
+    - agregarCaracteristica() : void
+    - quitarCaracteristica() : void
+    - crearTipo() : void
+    - limpiar() : void
+  }
+
+  class AppMatricula {
+    + {static} main(args : String[]) : void
+  }
+}
+
+package "javax.swing" {
+  class JFrame
+  class JPanel
+}
+
+package "escenario01.factorymethod" {
+  abstract class Vehiculo
+  class CatalogoCreadores
+  class SolicitudMatricula <<record>>
+  class CampoRequerido <<record>>
+  class CreadorConfigurable
+  class DefinicionTipo <<record>>
+  class TarifaCaracteristica <<record>>
+}
+
+' ---------- Generalizaciones ----------
+JFrame <|-- VentanaMatricula
+JPanel <|-- PanelNuevoTipo
+
+' ---------- Relaciones ----------
+VentanaMatricula "1" --> "1" CatalogoCreadores : -catalogo
+VentanaMatricula ..> SolicitudMatricula : <<instantiate>>
+VentanaMatricula ..> Vehiculo : <<use>>
+VentanaMatricula ..> CampoRequerido : <<use>>
+VentanaMatricula "1" *--> "1" PanelNuevoTipo
+PanelNuevoTipo "1" --> "1" CatalogoCreadores : -catalogo
+PanelNuevoTipo ..> CreadorConfigurable : <<instantiate>>
+PanelNuevoTipo ..> DefinicionTipo : <<instantiate>>
+AppMatricula ..> VentanaMatricula : <<instantiate>>
+AppMatricula ..> CatalogoCreadores : <<use>>
+PanelNuevoTipo ..> TarifaCaracteristica : <<instantiate>>
+
+' ---------- Rol en el patrón ----------
+note as NCL
+  <b>Client</b> del Factory Method:
+  obtiene los tipos y sus campos desde CatalogoCreadores
+  y trabaja solo con la abstracción Vehiculo.
+  PanelNuevoTipo registra nuevos ConcreteCreator
+  (CreadorConfigurable) en tiempo de ejecución.
+end note
+NCL .. VentanaMatricula
+NCL .. PanelNuevoTipo
+
+note as NREF
+  Detalle completo de estas clases en
+  escenario01-factory-method.puml
+end note
+NREF .. CatalogoCreadores
+
+@enduml
